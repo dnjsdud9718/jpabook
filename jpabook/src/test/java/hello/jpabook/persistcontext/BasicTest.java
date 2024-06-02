@@ -4,7 +4,6 @@ import hello.jpabook.Member;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
 import jakarta.persistence.EntityTransaction;
-import jakarta.persistence.Persistence;
 import jakarta.persistence.Query;
 import lombok.extern.slf4j.Slf4j;
 import org.assertj.core.api.Assertions;
@@ -28,11 +27,20 @@ public class BasicTest {
         EntityManager em = emf.createEntityManager();
         EntityTransaction tx = em.getTransaction();
         tx.begin();
-        Query query = em.createQuery(jpql);
-        int result = query.executeUpdate();
-        log.info("close() = {}", result);
-        tx.commit();
+        try {
+            Query query = em.createQuery(jpql);
+            int result = query.executeUpdate();
+            log.info("close() = {}", result);
+            tx.commit();
+        } catch (Exception e) {
+            log.info("error", e);
+            tx.rollback();
+        } finally {
+            em.close();
+        }
+
     }
+
     @Test
     void setup() {
         log.info("emf={}", emf.getClass());
@@ -80,8 +88,7 @@ public class BasicTest {
     }
 
     /**
-     * 쓰기 지연이 가능한 이유
-     * 1. 트랜잭션 범위 안에서 실행되므로 커밋 전에만 데이터베이스에 sql에 전달하면 된다.
+     * 쓰기 지연이 가능한 이유 1. 트랜잭션 범위 안에서 실행되므로 커밋 전에만 데이터베이스에 sql에 전달하면 된다.
      */
     @DisplayName("엔티티 등록 - 쓰기 지연")
     @Test
@@ -103,18 +110,13 @@ public class BasicTest {
     }
 
     /**
-     * 엔티티의 모든 필드를 업데이트 한다.
-     * 단점 : 데이터 전송량 증가
-     * 장점: 모든 필드를 사용하면 해당 엔티티의 수정 쿼리가 모두 동일. 따라서
-     * 애플리케이션 로딩 시점에서 수정 쿼리를 미리 생성해두고 재사용 가능.
-     * 데이터베이스에 동일한 쿼리를 보내면 데이터베이스는 이전에 한 번 파싱된
-     * 쿼리를 재사용
-     *
+     * 엔티티의 모든 필드를 업데이트 한다. 단점 : 데이터 전송량 증가 장점: 모든 필드를 사용하면 해당 엔티티의 수정 쿼리가 모두 동일. 따라서 애플리케이션 로딩 시점에서
+     * 수정 쿼리를 미리 생성해두고 재사용 가능. 데이터베이스에 동일한 쿼리를 보내면 데이터베이스는 이전에 한 번 파싱된 쿼리를 재사용
+     * <p>
      * 참고: @DynamicUpdate : 동적 update sql 생성
      */
     @DisplayName("엔티티 수정")
     @Test
-
     void update() {
         EntityManager em = emf.createEntityManager();
         EntityTransaction tx = em.getTransaction();
@@ -147,7 +149,7 @@ public class BasicTest {
 
     /**
      * JPQL 쿼리가 날라갈 때  flush()가 되야하는 이유
-     *
+     * <p>
      * flush() -> 영속성 컨텍스트를 지우는 것이 아니다.
      */
     @DisplayName("flush() - JPQL")
